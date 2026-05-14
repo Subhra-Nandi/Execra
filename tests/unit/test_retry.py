@@ -113,7 +113,7 @@ class TestRetry(unittest.TestCase):
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
 
             with pytest.raises(RateLimitError):
-                decorator()
+                await decorator()
 
             assert mock_func.call_count == 3
             assert mock_sleep.call_count == 2

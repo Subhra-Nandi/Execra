@@ -29,9 +29,9 @@ help:
 	@echo "  make docker-up          Start services with Docker Compose"
 	@echo "  make docker-down        Stop Docker Compose services"
 	@echo "  make clean              Remove temporary files and caches"
-	@echo "  make eval-full			 Runs evaluator and Baseline comaprison with reports
-	@echo "  make eval				 Runs evaluator with evaluation report
-	@echo "  make eval-compare		 Runs Baseline comaprison with baseline reports
+	@echo "  make eval-full			Runs evaluator and Baseline comaprison with reports
+	@echo "  make eval				Runs evaluator with evaluation report
+	@echo "  make eval-compare		Runs Baseline comaprison with baseline reports
 
 # Prerequisite: requirements.txt and requirements-dev.txt must exist
 install:

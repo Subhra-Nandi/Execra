@@ -1,6 +1,6 @@
 # Evaluating Real-Time Execution Guidance Quality in Execra
 
-**Status:** Initial Result 
+**Status:** Final PR Submission  
 **Author:** Sarvagya Dwivedi (Contributor, GSSoC 2026)
 
 ---

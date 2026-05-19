@@ -50,9 +50,7 @@ class TestRetry:
     def test_sync_max_retries_exceeded(self):
 
         mock_func = Mock(
-            side_effect=(
-                APIError("temporary error", request=None, body=None)
-            )
+            side_effect=APIError("temporary error", request=None, body=None)
         )
         decorator = retry(max_retries=3, base_delay=0)(mock_func)
         

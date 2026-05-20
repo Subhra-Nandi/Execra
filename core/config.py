@@ -87,7 +87,6 @@ class Settings:
             self.OPENAI_API_KEY = val
         if val := os.getenv("GEMINI_API_KEY"):
             self.GEMINI_API_KEY = val
-
         # Security
         if val := os.getenv("ENCRYPTION_KEY"):
             self.ENCRYPTION_KEY = val

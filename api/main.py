@@ -3,7 +3,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import status, mode
-from api.routes import actions, context
+from api.routes import actions, context, plugins
+from api.websockets.router import router as ws_router
 
 
 from core.config import settings
@@ -26,12 +27,18 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     logger.info("Execra API starting...")
+    from api.websockets.router import broadcast_action_log
+    from core.hybrid.action_logger import action_logger
+    action_logger.register_callback(broadcast_action_log)
 
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Execra API shutting down...")
+    from api.websockets.router import broadcast_action_log
+    from core.hybrid.action_logger import action_logger
+    action_logger.unregister_callback(broadcast_action_log)
 
 
 # Root endpoint
@@ -52,3 +59,5 @@ app.include_router(mode.router, prefix="/api/v1")
 # Action log and session context endpoints
 app.include_router(actions.router, prefix="/api/v1")
 app.include_router(context.router, prefix="/api/v1")
+app.include_router(plugins.router, prefix="/api/v1")
+app.include_router(ws_router)

@@ -7,7 +7,7 @@ from openai import APIError, RateLimitError
 
 from core.utils.retry import retry
 
-class TestRetry(unittest.TestCase):
+class TestRetry:
 
     def test_non_retryable_exception(self):
         
@@ -103,9 +103,7 @@ class TestRetry(unittest.TestCase):
         mock_response.request = Mock()
 
         mock_func = AsyncMock(
-            side_effect=[
-                RateLimitError("temporary error", response=mock_response, body=None)
-            ]
+            side_effect=RateLimitError("temporary error", response=mock_response, body=None)
         )
 
         decorator = retry(max_retries=3, base_delay=0)(mock_func)

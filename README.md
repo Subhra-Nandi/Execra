@@ -72,6 +72,12 @@ Traditional Workflow:        Execra Workflow:
 └──────────────────┘         └─────────────────────────────────┘
 ```
 
+### Real-Time Monitoring Dashboard
+
+The SvelteKit dashboard provides a futuristic UI showing real-time telemetry, live action logs, active WebSocket connection status, and guidance feedback:
+
+![Execra Monitoring Dashboard Preview](docs/images/dashboard_preview.png)
+
 ---
 
 ## 🎯 Core Objective
@@ -259,6 +265,67 @@ Traditional Workflow:        Execra Workflow:
                       │  (Undo / Replay)  │   Feedback loop
                       └───────────────────┘
 ```
+
+---
+
+### Real-Time WebSocket & API Architecture
+
+Execra implements a decoupled, event-driven observer pattern to broadcast action events to connected clients in real time. The sequence below describes the handshake and notification lifecycle.
+
+```mermaid
+sequenceDiagram
+    participant Frontend as SvelteKit Dashboard
+    participant WS as WebSocket Router
+    participant CM as Connection Manager
+    participant AL as Action Logger (Observer)
+
+    Frontend->>WS: ws://localhost:8000/ws
+    WS->>CM: connect()
+    CM->>CM: Add to active connections (set)
+    CM-->>Frontend: {"event": "handshake", ...}
+    
+    Note over Frontend, AL: Real-time Event Broadcast Flow
+    AL->>CM: notify(action)
+    CM->>Frontend: {"event": "action_logged", "data": {...}}
+```
+
+#### WebSocket Event Schema
+
+##### 1. Server Handshake Response
+Sent immediately upon client connection:
+```json
+{
+  "event": "handshake",
+  "version": "1.0.0",
+  "message": "Connected to ws://localhost:8000/ws"
+}
+```
+
+##### 2. Action Logged Broadcast
+Broadcasting payload to all active connections when a physical or digital action is recorded:
+```json
+{
+  "event": "action_logged",
+  "data": {
+    "id": "act_1716200230",
+    "session_id": "sess_9123",
+    "timestamp": "2026-05-20T11:24:35.832Z",
+    "type": "user_click",
+    "description": "Clicked dashboard simulation button",
+    "domain": "digital",
+    "was_guided": true,
+    "guidance_confidence": 0.95
+  }
+}
+```
+
+#### REST API Endpoints
+
+| Method | Endpoint | Description | Payload Schema / Response |
+|--------|----------|-------------|----------------------------|
+| **GET** | `/api/v1/actions` | Retrieve recently recorded execution actions. | `{"actions": [...], "count": 2}` |
+| **POST** | `/api/v1/actions` | Log a new action record and broadcast to WebSocket observers. | `ActionRecord` model |
+| **POST** | `/api/v1/actions/undo` | Revert the last execution action from the log. | `{"message": "Action undone", "action_undone": {...}}` |
 
 ---
 
@@ -505,7 +572,7 @@ ffmpeg -version
 ```bash
 # 1. Clone the repository
 git clone https://github.com/sahoo-tech/execra.git
-cd execra
+cd execra/Execra
 
 # 2. Create virtual environment
 python -m venv venv
@@ -515,32 +582,43 @@ venv\Scripts\activate            # Windows
 # 3. Install Python dependencies
 pip install -r requirements.txt
 
-# 4. Install frontend dependencies
-cd frontend
+# 4. Install SvelteKit Dashboard dependencies
+cd dashboard
 npm install
 cd ..
-
-# 5. Set up environment variables
-cp .env.example .env
-# Edit .env and add your API keys (OpenAI / Gemini)
-
-# 6. Download YOLO model weights
-python scripts/download_models.py
-
-# 7. Run Execra
-python main.py
 ```
+
+### Running the Services Locally
+
+#### 1. Start the FastAPI Backend
+From the `Execra` root directory:
+```bash
+# Windows
+venv\Scripts\python.exe main.py
+
+# Linux/Mac
+./venv/bin/python main.py
+```
+The API server will run at `http://localhost:8000`. Swagger documentation is available at `http://localhost:8000/docs`.
+
+#### 2. Start the SvelteKit Dashboard
+From the `Execra/dashboard` directory:
+```bash
+npm run dev
+```
+The dashboard interface will run at `http://localhost:5173`.
 
 ### Quick Start (Docker)
 
 ```bash
-# Build and run with Docker Compose
+# Build and run both backend and frontend with Docker Compose
 docker-compose up --build
 
-# Execra will be running at:
-# API:      http://localhost:8000
-# Frontend: http://localhost:3000
+# Services will be running at:
+# API Backend:      http://localhost:8000
+# Svelte Dashboard: http://localhost:5173
 ```
+
 
 ---
 

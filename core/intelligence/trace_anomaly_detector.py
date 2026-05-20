@@ -263,6 +263,57 @@ def _build_baseline_data(
     ])
 
 
+def _validate_model(model: Any) -> None:
+    """
+    Verify that *model* is a fitted ``IsolationForest`` compatible with the
+    current feature set before it is stored on the detector.
+
+    Three checks are performed in order:
+
+    1. **Type check** — *model* must be an ``IsolationForest`` instance.
+    2. **Fitted check** — the model must have ``estimators_`` populated,
+       which sklearn sets only after a successful ``fit()`` call.
+    3. **Probe inference** — ``decision_function`` is called with a zero
+       vector of the expected shape.  This catches feature-count mismatches
+       (``ValueError``) and any other sklearn internal state errors that only
+       surface at inference time rather than at load time.
+
+    Parameters
+    ----------
+    model:
+        The candidate model object to validate.
+
+    Raises
+    ------
+    TypeError
+        If *model* is not an ``IsolationForest``.
+    ValueError
+        If the model is not fitted or the probe inference fails (e.g., trained
+        on a different number of features or an incompatible sklearn version).
+    """
+    if not isinstance(model, IsolationForest):
+        raise TypeError(
+            f"Expected IsolationForest, got {type(model).__name__}."
+        )
+
+    if not hasattr(model, "estimators_"):
+        raise ValueError(
+            "Model is not fitted — 'estimators_' attribute is missing. "
+            "The file may have been saved before fit() completed."
+        )
+
+    probe = np.zeros((1, len(FEATURE_NAMES)), dtype=np.float64)
+    try:
+        model.decision_function(probe)
+    except Exception as exc:
+        raise ValueError(
+            f"Model probe inference failed — the saved model may be "
+            f"incompatible with the current sklearn version "
+            f"({_SKLEARN_VERSION}). Re-train with detector.fit(traces) and "
+            f"detector.save(). Original error: {exc}"
+        ) from exc
+
+
 # ---------------------------------------------------------------------------
 # Detector class
 # ---------------------------------------------------------------------------
@@ -399,8 +450,16 @@ class TraceAnomalyDetector:
         features = _extract_features(trace)
         X = features.reshape(1, -1)
 
-        raw_score: float = float(self._model.decision_function(X)[0])
-        is_anomaly: bool = bool(self._model.predict(X)[0] == -1)
+        try:
+            raw_score: float = float(self._model.decision_function(X)[0])
+            is_anomaly: bool = bool(self._model.predict(X)[0] == -1)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Model inference failed — the loaded model may be "
+                f"incompatible with the current sklearn version "
+                f"({_SKLEARN_VERSION}). Re-train with detector.fit(traces) "
+                f"and detector.save(). Original error: {exc}"
+            ) from exc
         match: float = _score_to_match(raw_score)
 
         feature_values: dict[str, float] = {
@@ -495,12 +554,20 @@ class TraceAnomalyDetector:
                     saved_version,
                     _SKLEARN_VERSION,
                 )
-            self._model = payload["model"]
-            self._n_samples_fitted = payload.get("n_samples_fitted", 0)
+            candidate_model: Any = payload["model"]
+            n_samples: int = payload.get("n_samples_fitted", 0)
         else:
             # Legacy support: payload is the raw IsolationForest instance
-            self._model = payload
+            candidate_model = payload
+            n_samples = 0
 
+        # Validate the candidate before committing it to state.  Raises
+        # TypeError or ValueError if the model is incompatible; the caller
+        # (_try_load_or_fit_baseline) catches those and falls back to baseline.
+        _validate_model(candidate_model)
+
+        self._model = candidate_model
+        self._n_samples_fitted = n_samples
         self._is_fitted = True
         logger.info("TraceAnomalyDetector model loaded from %s.", src)
 
@@ -519,6 +586,32 @@ class TraceAnomalyDetector:
         self._model.fit(X)
         self._is_fitted = True
         self._n_samples_fitted = len(X)
+
+    def _evict_incompatible_model(self) -> None:
+        """
+        Rename a corrupt or incompatible model file so it is not re-attempted
+        on the next process restart.
+
+        The file is moved to ``<original_name>.incompatible`` in the same
+        directory.  If the rename fails (e.g., permission error), a warning is
+        logged but no exception is raised — the fallback baseline fitting
+        proceeds regardless.
+
+        This method is a no-op when the model file does not exist.
+        """
+        src = Path(self._model_path)
+        if not src.exists():
+            return
+        dest = src.parent / (src.name + ".incompatible")
+        try:
+            src.rename(dest)
+            logger.info(
+                "Renamed incompatible model file '%s' → '%s'.", src, dest
+            )
+        except OSError as exc:
+            logger.warning(
+                "Could not rename incompatible model file '%s': %s.", src, exc
+            )
 
     def _fit_baseline(self) -> None:
         """
@@ -562,6 +655,7 @@ class TraceAnomalyDetector:
                 type(exc).__name__,
                 exc,
             )
+            self._evict_incompatible_model()
             self._fit_baseline()
 
 

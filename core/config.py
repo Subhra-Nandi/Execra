@@ -48,6 +48,10 @@ class Settings:
         ]
     )
 
+    # Alert Suppression
+    ALERT_COOLDOWN_INFO: int = 60
+    ALERT_COOLDOWN_WARNING: int = 30
+
     # Redis Configuration
     REDIS_URL: str = "redis://localhost:6379"
     REDIS_AUTH: Optional[str] = None
@@ -131,6 +135,12 @@ class Settings:
         # MASKED_REGIONS and SENSITIVE_PATTERNS are complex types,
         # usually handled via JSON strings in .env if needed.
         # For now, we use defaults or manual override.
+
+        # Alert Suppression
+        if val := os.getenv("ALERT_COOLDOWN_INFO"):
+            self.ALERT_COOLDOWN_INFO = int(val)
+        if val := os.getenv("ALERT_COOLDOWN_WARNING"):
+            self.ALERT_COOLDOWN_WARNING = int(val)
 
     def validate_required(self) -> None:
         """

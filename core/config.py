@@ -5,7 +5,7 @@ Modules should import settings from here instead of os.getenv().
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
+
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 
@@ -28,7 +28,7 @@ class Settings:
     """
 
     # LLM Configuration
-    LLM_BACKEND: str = "gpt-4o"
+    LLM_BACKEND: str = "openai"
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
 
@@ -45,6 +45,8 @@ class Settings:
         default_factory=lambda: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
             "http://localhost:8000",
             "http://127.0.0.1:8000",
         ]
